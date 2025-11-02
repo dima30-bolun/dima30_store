@@ -515,9 +515,8 @@
                         <li><a href="#about">О нас</a></li>
                     </ul>
                 </nav>
-                <div class="auth-buttons">
-                    <button class="btn btn-outline" id="loginBtn">Войти</button>
-                    <button class="btn btn-primary" id="registerBtn">Регистрация</button>
+                <div class="auth-buttons" id="authButtons">
+                    <!-- Кнопки входа/регистрации или информация о пользователе -->
                 </div>
             </div>
         </div>
@@ -681,10 +680,61 @@
     </footer>
 
     <script>
+        // Ключи для localStorage
+        const STORAGE_KEYS = {
+            USERS: 'dima30store_users',
+            APPS: 'dima30store_apps',
+            CURRENT_USER: 'dima30store_currentUser'
+        };
+
+        // Предустановленный аккаунт администратора
+        const ADMIN_ACCOUNT = {
+            username: 'dima30',
+            password: 'dima30store_128',
+            verified: true
+        };
+
+        // Инициализация данных
+        function initializeData() {
+            // Проверяем, есть ли уже данные в localStorage
+            if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+                // Если нет, создаем начальные данные
+                const initialUsers = [ADMIN_ACCOUNT];
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(initialUsers));
+            }
+            
+            if (!localStorage.getItem(STORAGE_KEYS.APPS)) {
+                localStorage.setItem(STORAGE_KEYS.APPS, JSON.stringify([]));
+            }
+        }
+
+        // Получение данных из localStorage
+        function getData(key) {
+            return JSON.parse(localStorage.getItem(key)) || [];
+        }
+
+        // Сохранение данных в localStorage
+        function saveData(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        // Получение текущего пользователя
+        function getCurrentUser() {
+            return JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER));
+        }
+
+        // Сохранение текущего пользователя
+        function setCurrentUser(user) {
+            if (user) {
+                localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+            }
+        }
+
         // Элементы DOM
         const appsGrid = document.getElementById('appsGrid');
-        const loginBtn = document.getElementById('loginBtn');
-        const registerBtn = document.getElementById('registerBtn');
+        const authButtons = document.getElementById('authButtons');
         const loginModal = document.getElementById('loginModal');
         const registerModal = document.getElementById('registerModal');
         const closeModalButtons = document.querySelectorAll('.close-modal');
@@ -703,32 +753,22 @@
         const totalDownloadsElement = document.getElementById('totalDownloads');
         const verifiedDevelopersElement = document.getElementById('verifiedDevelopers');
 
-        // Предустановленный аккаунт администратора
-        const adminAccount = {
-            username: 'dima30',
-            password: 'dima30store_128',
-            verified: true
-        };
-
-        // Хранилище данных
-        let users = JSON.parse(localStorage.getItem('dima30store_users')) || [adminAccount];
-        let apps = JSON.parse(localStorage.getItem('dima30store_apps')) || [];
-        let currentUser = JSON.parse(localStorage.getItem('dima30store_currentUser')) || null;
-
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
-            updateUI();
+            initializeData();
+            updateAuthUI();
             loadApps();
             updateStats();
             
-            // Если пользователь уже вошел в систему
-            if (currentUser) {
-                showUserInfo();
-            }
+            // Обработчик для кнопки "Исследовать приложения"
+            document.getElementById('exploreBtn').addEventListener('click', () => {
+                document.getElementById('apps').scrollIntoView({ behavior: 'smooth' });
+            });
         });
 
         // Загрузка приложений на страницу
         function loadApps() {
+            const apps = getData(STORAGE_KEYS.APPS);
             appsGrid.innerHTML = '';
             
             if (apps.length === 0) {
@@ -773,6 +813,9 @@
 
         // Обновление статистики
         function updateStats() {
+            const apps = getData(STORAGE_KEYS.APPS);
+            const users = getData(STORAGE_KEYS.USERS);
+            
             totalAppsElement.textContent = apps.length;
             
             const totalDownloads = apps.reduce((sum, app) => sum + (app.downloads || 0), 0);
@@ -784,11 +827,13 @@
 
         // Скачивание приложения
         function downloadApp(appId) {
+            const apps = getData(STORAGE_KEYS.APPS);
             const app = apps.find(a => a.id == appId);
+            
             if (app) {
                 // Увеличиваем счетчик скачиваний
                 app.downloads = (app.downloads || 0) + 1;
-                localStorage.setItem('dima30store_apps', JSON.stringify(apps));
+                saveData(STORAGE_KEYS.APPS, apps);
                 
                 // Обновляем интерфейс
                 loadApps();
@@ -804,10 +849,12 @@
             }
         }
 
-        // Обновление интерфейса в зависимости от состояния
-        function updateUI() {
+        // Обновление интерфейса аутентификации
+        function updateAuthUI() {
+            const currentUser = getCurrentUser();
+            
             if (currentUser) {
-                document.querySelector('.auth-buttons').innerHTML = `
+                authButtons.innerHTML = `
                     <div class="user-info">
                         <div class="user-avatar">${currentUser.username.charAt(0).toUpperCase()}</div>
                         <div class="user-name">${currentUser.username} ${currentUser.verified ? '<span class="verified-check">✓</span>' : ''}</div>
@@ -817,7 +864,7 @@
                 
                 document.getElementById('logoutBtn').addEventListener('click', logout);
             } else {
-                document.querySelector('.auth-buttons').innerHTML = `
+                authButtons.innerHTML = `
                     <button class="btn btn-outline" id="loginBtn">Войти</button>
                     <button class="btn btn-primary" id="registerBtn">Регистрация</button>
                 `;
@@ -828,17 +875,11 @@
             }
         }
 
-        // Показ информации о пользователе
-        function showUserInfo() {
-            // Обновляем интерфейс для вошедшего пользователя
-            updateUI();
-        }
-
         // Выход из системы
         function logout() {
-            currentUser = null;
-            localStorage.removeItem('dima30store_currentUser');
-            updateUI();
+            setCurrentUser(null);
+            updateAuthUI();
+            alert('Вы вышли из системы.');
         }
 
         // Открытие модального окна
@@ -866,9 +907,11 @@
             });
         });
 
-        // Обработчики событий
-        loginBtn.addEventListener('click', () => openModal(loginModal));
-        registerBtn.addEventListener('click', () => openModal(registerModal));
+        // Обработчики событий для модальных окон
+        document.addEventListener('click', (e) => {
+            if (e.target === loginModal) closeModal(loginModal);
+            if (e.target === registerModal) closeModal(registerModal);
+        });
 
         closeModalButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -894,16 +937,16 @@
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             
+            const users = getData(STORAGE_KEYS.USERS);
             const user = users.find(u => u.username === username && u.password === password);
             
             if (user) {
-                currentUser = user;
-                localStorage.setItem('dima30store_currentUser', JSON.stringify(currentUser));
+                setCurrentUser(user);
                 
                 alert(`Успешный вход! Добро пожаловать, ${username}!`);
                 closeModal(loginModal);
                 
-                showUserInfo();
+                updateAuthUI();
             } else {
                 alert('Неверный логин или пароль!');
             }
@@ -921,6 +964,8 @@
             }
             
             if (username && password) {
+                const users = getData(STORAGE_KEYS.USERS);
+                
                 // Проверяем, нет ли уже пользователя с таким именем
                 if (users.find(u => u.username === username)) {
                     alert('Пользователь с таким именем уже существует!');
@@ -934,10 +979,14 @@
                 };
                 
                 users.push(newUser);
-                localStorage.setItem('dima30store_users', JSON.stringify(users));
+                saveData(STORAGE_KEYS.USERS, users);
+                
+                // Автоматический вход после регистрации
+                setCurrentUser(newUser);
                 
                 alert(`Аккаунт ${username} успешно зарегистрирован!`);
                 closeModal(registerModal);
+                updateAuthUI();
             } else {
                 alert('Заполните все поля!');
             }
@@ -971,6 +1020,8 @@
 
         // Обработка загрузки приложения
         uploadAppBtn.addEventListener('click', () => {
+            const currentUser = getCurrentUser();
+            
             if (!currentUser) {
                 alert('Для загрузки приложения необходимо войти в систему!');
                 return;
@@ -1021,8 +1072,9 @@
 
         // Сохранение приложения
         function saveApp(app) {
+            const apps = getData(STORAGE_KEYS.APPS);
             apps.push(app);
-            localStorage.setItem('dima30store_apps', JSON.stringify(apps));
+            saveData(STORAGE_KEYS.APPS, apps);
             
             alert(`Приложение "${app.name}" успешно загружено!`);
             
@@ -1040,6 +1092,8 @@
 
         // Обработка запроса на верификацию
         requestVerificationBtn.addEventListener('click', () => {
+            const currentUser = getCurrentUser();
+            
             if (!currentUser) {
                 alert('Для запроса верификации необходимо войти в систему!');
                 return;
@@ -1048,18 +1102,20 @@
             const verificationCode = document.getElementById('verificationCode').value;
             
             if (verificationCode === 'dima30_verification') {
+                const users = getData(STORAGE_KEYS.USERS);
+                
                 // Находим пользователя в массиве и обновляем его статус
                 const userIndex = users.findIndex(u => u.username === currentUser.username);
                 if (userIndex !== -1) {
                     users[userIndex].verified = true;
-                    localStorage.setItem('dima30store_users', JSON.stringify(users));
+                    saveData(STORAGE_KEYS.USERS, users);
                     
                     // Обновляем текущего пользователя
-                    currentUser.verified = true;
-                    localStorage.setItem('dima30store_currentUser', JSON.stringify(currentUser));
+                    const updatedUser = {...currentUser, verified: true};
+                    setCurrentUser(updatedUser);
                     
                     alert('Поздравляем! Вы получили галочку проверенного разработчика!');
-                    showUserInfo();
+                    updateAuthUI();
                     updateStats();
                 }
             } else {
