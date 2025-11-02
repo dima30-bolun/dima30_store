@@ -38,6 +38,9 @@
             color: white;
             padding: 15px 0;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .header-content {
@@ -492,6 +495,19 @@
             font-size: 14px;
         }
 
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: var(--success);
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+        }
+
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -518,6 +534,8 @@
     </style>
 </head>
 <body>
+    <div class="notification" id="notification"></div>
+    
     <header>
         <div class="container">
             <div class="header-content">
@@ -710,6 +728,40 @@
             verified: true
         };
 
+        // Предустановленные приложения
+        const DEFAULT_APPS = [
+            {
+                id: 1,
+                name: "Метеостанция",
+                description: "Приложение для отслеживания погоды в реальном времени с подробным прогнозом на неделю.",
+                author: "dima30",
+                verifiedAuthor: true,
+                downloads: 1542,
+                fileContent: "Пример содержимого файла .ben для приложения Метеостанция",
+                icon: "🌤️"
+            },
+            {
+                id: 2,
+                name: "Финансовый трекер",
+                description: "Удобное приложение для учета личных финансов и планирования бюджета.",
+                author: "dima30",
+                verifiedAuthor: true,
+                downloads: 892,
+                fileContent: "Пример содержимого файла .ben для приложения Финансовый трекер",
+                icon: "💰"
+            },
+            {
+                id: 3,
+                name: "Фитнес-трекер",
+                description: "Отслеживайте вашу активность, шаги и калории с помощью этого приложения.",
+                author: "alex_dev",
+                verifiedAuthor: true,
+                downloads: 2105,
+                fileContent: "Пример содержимого файла .ben для приложения Фитнес-трекер",
+                icon: "🏃"
+            }
+        ];
+
         // Инициализация данных
         function initializeData() {
             // Проверяем, есть ли уже данные в localStorage
@@ -720,7 +772,7 @@
             }
             
             if (!localStorage.getItem(STORAGE_KEYS.APPS)) {
-                localStorage.setItem(STORAGE_KEYS.APPS, JSON.stringify([]));
+                localStorage.setItem(STORAGE_KEYS.APPS, JSON.stringify(DEFAULT_APPS));
             }
         }
 
@@ -746,6 +798,18 @@
             } else {
                 localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
             }
+        }
+
+        // Показать уведомление
+        function showNotification(message, isSuccess = true) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.backgroundColor = isSuccess ? '#2ecc71' : '#e74c3c';
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
         }
 
         // Элементы DOM
@@ -796,14 +860,9 @@
                 const appCard = document.createElement('div');
                 appCard.className = 'app-card';
                 
-                // Определяем стиль для изображения приложения
-                const imageStyle = app.icon ? 
-                    `style="background-image: url('${app.icon}')"` : 
-                    '';
-                
                 appCard.innerHTML = `
-                    <div class="app-image" ${imageStyle}>
-                        ${app.icon ? '' : '📱'}
+                    <div class="app-image">
+                        ${app.icon || '📱'}
                     </div>
                     <div class="app-content">
                         <h3 class="app-title">${app.name}</h3>
@@ -858,7 +917,7 @@
             const updatedApps = apps.filter(app => app.id != appId);
             saveData(STORAGE_KEYS.APPS, updatedApps);
             
-            alert('Приложение успешно удалено!');
+            showNotification('Приложение успешно удалено!');
             loadApps();
             updateStats();
         }
@@ -900,7 +959,7 @@
                 link.click();
                 document.body.removeChild(link);
                 
-                alert(`Приложение "${app.name}" успешно скачано!`);
+                showNotification(`Приложение "${app.name}" успешно скачано!`);
             }
         }
 
@@ -934,7 +993,7 @@
         function logout() {
             setCurrentUser(null);
             updateAuthUI();
-            alert('Вы вышли из системы.');
+            showNotification('Вы вышли из системы.');
         }
 
         // Открытие модального окна
@@ -998,12 +1057,12 @@
             if (user) {
                 setCurrentUser(user);
                 
-                alert(`Успешный вход! Добро пожаловать, ${username}!`);
+                showNotification(`Успешный вход! Добро пожаловать, ${username}!`);
                 closeModal(loginModal);
                 
                 updateAuthUI();
             } else {
-                alert('Неверный логин или пароль!');
+                showNotification('Неверный логин или пароль!', false);
             }
         });
 
@@ -1014,7 +1073,7 @@
             const confirmPassword = document.getElementById('registerConfirmPassword').value;
             
             if (password !== confirmPassword) {
-                alert('Пароли не совпадают!');
+                showNotification('Пароли не совпадают!', false);
                 return;
             }
             
@@ -1023,7 +1082,7 @@
                 
                 // Проверяем, нет ли уже пользователя с таким именем
                 if (users.find(u => u.username === username)) {
-                    alert('Пользователь с таким именем уже существует!');
+                    showNotification('Пользователь с таким именем уже существует!', false);
                     return;
                 }
                 
@@ -1039,11 +1098,11 @@
                 // Автоматический вход после регистрации
                 setCurrentUser(newUser);
                 
-                alert(`Аккаунт ${username} успешно зарегистрирован!`);
+                showNotification(`Аккаунт ${username} успешно зарегистрирован!`);
                 closeModal(registerModal);
                 updateAuthUI();
             } else {
-                alert('Заполните все поля!');
+                showNotification('Заполните все поля!', false);
             }
         });
 
@@ -1066,7 +1125,7 @@
                     };
                     reader.readAsText(file);
                 } else {
-                    alert('Пожалуйста, выберите файл с расширением .ben');
+                    showNotification('Пожалуйста, выберите файл с расширением .ben', false);
                     appFile.value = '';
                     fileName.textContent = '';
                 }
@@ -1078,12 +1137,12 @@
             const currentUser = getCurrentUser();
             
             if (!currentUser) {
-                alert('Для загрузки приложения необходимо войти в систему!');
+                showNotification('Для загрузки приложения необходимо войти в систему!', false);
                 return;
             }
             
             if (!currentUser.verified) {
-                alert('Для загрузки приложения необходима галочка проверенного разработчика!');
+                showNotification('Для загрузки приложения необходима галочка проверенного разработчика!', false);
                 return;
             }
             
@@ -1092,12 +1151,12 @@
             const appIconFile = document.getElementById('appIcon').files[0];
             
             if (!appFile.files[0]) {
-                alert('Пожалуйста, выберите файл приложения (.ben)');
+                showNotification('Пожалуйста, выберите файл приложения (.ben)', false);
                 return;
             }
             
             if (!appName || !appDescription) {
-                alert('Пожалуйста, заполните название и описание приложения');
+                showNotification('Пожалуйста, заполните название и описание приложения', false);
                 return;
             }
             
@@ -1132,7 +1191,7 @@
             apps.push(app);
             saveData(STORAGE_KEYS.APPS, apps);
             
-            alert(`Приложение "${app.name}" успешно загружено!`);
+            showNotification(`Приложение "${app.name}" успешно загружено!`);
             
             // Сброс формы
             document.getElementById('appName').value = '';
@@ -1151,7 +1210,7 @@
             const currentUser = getCurrentUser();
             
             if (!currentUser) {
-                alert('Для запроса верификации необходимо войти в систему!');
+                showNotification('Для запроса верификации необходимо войти в систему!', false);
                 return;
             }
             
@@ -1170,12 +1229,12 @@
                     const updatedUser = {...currentUser, verified: true};
                     setCurrentUser(updatedUser);
                     
-                    alert('Поздравляем! Вы получили галочку проверенного разработчика!');
+                    showNotification('Поздравляем! Вы получили галочку проверенного разработчика!');
                     updateAuthUI();
                     updateStats();
                 }
             } else {
-                alert('Неверный код верификации!');
+                showNotification('Неверный код верификации!', false);
             }
         });
     </script>
